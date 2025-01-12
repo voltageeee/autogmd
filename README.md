@@ -41,5 +41,6 @@ HOSTNAME=http://localhost:8080
 
 # /api/items/get
 получает итемы по проекту. !!!! паблик ендпойнт (не требует авторизации), метод гет. нужен ключ с айдишником проекта. пример респонса:
-![image](https://github.com/user-attachments/assets/c6b5b415-5bef-4ee7-a659-efee98287004)
+![image](https://github.com/user-attachments/assets/dd62dad7-c40d-45a4-8f9b-8302e52592dc)
+
 
