@@ -104,7 +104,7 @@ func NewProject(w http.ResponseWriter, req *http.Request) {
 
 	var projectExists bool
 
-	err = db.QueryRow("SELECT COUNT(*) > 0 FROM projects WHERE name = ?", name).Scan(&projectExists)
+	err = db.QueryRow("SELECT COUNT(*) > 0 FROM projects WHERE name = ? AND owner = ?", name, steamid).Scan(&projectExists)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "our backend is fucked, try again later.", http.StatusInternalServerError)
@@ -117,6 +117,51 @@ func NewProject(w http.ResponseWriter, req *http.Request) {
 	}
 
 	_, err = db.Exec("INSERT INTO projects (name, ipaddr, balance, owner) VALUES (?, ?, ?, ?)", name, "localhost", 0.00, steamid)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "our backend is fucked, try again later.", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("gotcha!"))
+}
+
+func DeleteProject(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cookie, err := req.Cookie("session_token")
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	steamid, exists := auth.ValidateUserSession(cookie.Value)
+	if !exists {
+		http.Redirect(w, req, "http://localhost:8080/login", http.StatusTemporaryRedirect)
+		return
+	}
+
+	name := req.PostFormValue("projectname")
+
+	var projectExists bool
+
+	err = db.QueryRow("SELECT COUNT(*) > 0 FROM projects WHERE name = ? AND owner = ?", name, steamid).Scan(&projectExists)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "our backend is fucked, try again later.", http.StatusInternalServerError)
+		return
+	}
+
+	if !projectExists {
+		http.Error(w, "Project doesn't exist", http.StatusBadRequest)
+		return
+	}
+
+	_, err = db.Exec("DELETE FROM projects WHERE name = ? AND owner = ?", name, steamid)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "our backend is fucked, try again later.", http.StatusInternalServerError)
