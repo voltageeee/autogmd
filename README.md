@@ -33,3 +33,12 @@ DB_CONNECTION_STRING=user:password@tcp(ip:port)/database
 # /api/projects/delete
 удаляет проект, метод post, нужна форма с ключем "projectname", значение - имя проекта. хедер как обычно - токен сессии. респонса тож нема, но должен вернуть 200. пример запроса:
 ![image](https://github.com/user-attachments/assets/e9be893b-ffed-44a5-b025-1757eb745f03)
+
+# /api/items/create
+создает итем. метод post, нужна форма с ключами как на скрине. единственный хедер - токен сессии. респонса нема, должен вернуть 200. пример запроса: previousprice может быть 0, но тогда в магазе нужно будет previousprice ваще не отображать. итемы могут быть неуникальными, нам-то похуй че там сервер овнеры добавляют. вот прям поебать)
+![image](https://github.com/user-attachments/assets/3e6a32b6-bfc5-4b45-b54d-488b143299ea)
+
+# /api/items/get
+получает итемы по проекту. !!!! паблик ендпойнт (не требует авторизации), метод пост. нужен ключ с айдишником проекта. пример респонса:
+![image](https://github.com/user-attachments/assets/c6b5b415-5bef-4ee7-a659-efee98287004)
+
