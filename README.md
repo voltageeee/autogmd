@@ -39,6 +39,6 @@ DB_CONNECTION_STRING=user:password@tcp(ip:port)/database
 ![image](https://github.com/user-attachments/assets/3e6a32b6-bfc5-4b45-b54d-488b143299ea)
 
 # /api/items/get
-получает итемы по проекту. !!!! паблик ендпойнт (не требует авторизации), метод пост. нужен ключ с айдишником проекта. пример респонса:
+получает итемы по проекту. !!!! паблик ендпойнт (не требует авторизации), метод гет. нужен ключ с айдишником проекта. пример респонса:
 ![image](https://github.com/user-attachments/assets/c6b5b415-5bef-4ee7-a659-efee98287004)
 
