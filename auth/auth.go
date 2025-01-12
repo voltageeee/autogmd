@@ -91,7 +91,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "http://localhost:8080/protected", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, fmt.Sprintf("%s/protected", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 }
 
 func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("failed to upsert user: ", err)
 	}
 
-	http.Redirect(w, r, "/protected", http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("%s/protected", os.Getenv("HOSTNAME")), http.StatusFound)
 }
 
 // хуета чтоб убедиться в том, что мы залогинились. прост возвращает ник, стимайди и ссылку на аватарку в джсон формате. можно юзать для получения этих данных наврен :/
@@ -217,5 +217,5 @@ func Logout(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	http.Redirect(w, req, "http://localhost:8080/login", http.StatusTemporaryRedirect)
+	http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 }

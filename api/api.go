@@ -28,6 +28,7 @@ type Item struct {
 	Picture     string
 	Description string
 	PrevPrice   int
+	ID          int
 }
 
 var db *sql.DB
@@ -59,7 +60,7 @@ func GetProjects(w http.ResponseWriter, req *http.Request) {
 
 	steamid, exists := auth.ValidateUserSession(cookie.Value)
 	if !exists {
-		http.Redirect(w, req, "http://localhost:8080/login", http.StatusTemporaryRedirect)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -105,7 +106,7 @@ func NewProject(w http.ResponseWriter, req *http.Request) {
 
 	steamid, exists := auth.ValidateUserSession(cookie.Value)
 	if !exists {
-		http.Redirect(w, req, "http://localhost:8080/login", http.StatusTemporaryRedirect)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -150,7 +151,7 @@ func DeleteProject(w http.ResponseWriter, req *http.Request) {
 
 	steamid, exists := auth.ValidateUserSession(cookie.Value)
 	if !exists {
-		http.Redirect(w, req, "http://localhost:8080/login", http.StatusTemporaryRedirect)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -195,7 +196,7 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 
 	steamid, exists := auth.ValidateUserSession(cookie.Value)
 	if !exists {
-		http.Redirect(w, req, "http://localhost:8080/login", http.StatusTemporaryRedirect)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -239,7 +240,7 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if !projectExists {
-		http.Error(w, "Project doesn't exist", http.StatusBadRequest)
+		http.Error(w, "Project doesn't exist or you aren't the owner", http.StatusBadRequest)
 		return
 	}
 
@@ -257,7 +258,7 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 func GetItems(w http.ResponseWriter, req *http.Request) {
 	var projectExists bool
 	var items []Item
-	if req.Method != http.MethodPost {
+	if req.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -291,7 +292,7 @@ func GetItems(w http.ResponseWriter, req *http.Request) {
 
 	for rows.Next() {
 		var item Item
-		if err := rows.Scan(&item.Project, &item.Name, &item.Price, &item.Picture, &item.Description, &item.PrevPrice); err != nil {
+		if err := rows.Scan(&item.Project, &item.Name, &item.Price, &item.Picture, &item.Description, &item.PrevPrice, &item.ID); err != nil {
 			log.Println("Error scanning row:", err)
 			http.Error(w, "Failed to read data", http.StatusInternalServerError)
 			return
