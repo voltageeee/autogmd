@@ -3,6 +3,7 @@
 ```
 STEAM_API_KEY=твойстимвебапиключь
 DB_CONNECTION_STRING=user:password@tcp(ip:port)/database
+HOSTNAME=http://localhost:8080
 ```
 
 # /api/projects/get
