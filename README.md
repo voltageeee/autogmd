@@ -29,3 +29,7 @@ DB_CONNECTION_STRING=user:password@tcp(ip:port)/database
 быть уникальным.
 пример запроса:
 ![image](https://github.com/user-attachments/assets/2b1ac235-5c33-4c30-a9e1-52f8390e3be0)
+
+# /api/projects/delete
+удаляет проект, метод post, нужна форма с ключем "projectname", значение - имя проекта. хедер как обычно - токен сессии. респонса тож нема, но должен вернуть 200. пример запроса:
+![image](https://github.com/user-attachments/assets/e9be893b-ffed-44a5-b025-1757eb745f03)
