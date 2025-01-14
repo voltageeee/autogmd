@@ -318,6 +318,8 @@ func GetItems(w http.ResponseWriter, req *http.Request) {
 }
 
 func DeleteItem(w http.ResponseWriter, req *http.Request) {
+	var projectID int
+	var ownerSteamID string
 	if req.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusNotAcceptable)
 		return
@@ -329,21 +331,18 @@ func DeleteItem(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	item := req.PostFormValue("itemid")
-	newItem, err := strconv.Atoi(item)
-	if err != nil {
-		http.Error(w, "Couldn't convert item id to an integer", http.StatusInternalServerError)
-		return
-	}
-
 	steamid, exists := auth.ValidateUserSession(cookie.Value)
 	if !exists {
 		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
 	}
 
-	var projectID int
-	var ownerSteamID string
+	item := req.PostFormValue("itemid")
+	newItem, err := strconv.Atoi(item)
+	if err != nil {
+		http.Error(w, "Couldn't convert item id to an integer", http.StatusInternalServerError)
+		return
+	}
 
 	err = db.QueryRow("SELECT project FROM items WHERE id = ?", newItem).Scan(&projectID)
 	if err == sql.ErrNoRows {
@@ -366,6 +365,172 @@ func DeleteItem(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(w, "Our backend is fucked, try again later", http.StatusInternalServerError)
 		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("gotcha!"))
+}
+
+func EditProject(w http.ResponseWriter, req *http.Request) {
+	var projectExists bool
+	project, err := strconv.Atoi(req.PostFormValue("projectid"))
+	if err != nil {
+		http.Error(w, "Couldn't convert project ID to an integer", http.StatusInternalServerError)
+		return
+	}
+	newName := req.PostFormValue("newname")
+
+	if req.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusNotAcceptable)
+		return
+	}
+
+	cookie, err := req.Cookie("session_token")
+	if err != nil {
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		return
+	}
+
+	steamid, exists := auth.ValidateUserSession(cookie.Value)
+	if !exists {
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		return
+	}
+
+	err = db.QueryRow("SELECT COUNT(*) > 0 FROM projects WHERE id = ? AND owner = ?", project, steamid).Scan(&projectExists)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "our backend is fucked, try again later.", http.StatusInternalServerError)
+		return
+	}
+
+	if !projectExists {
+		http.Error(w, "Project doesn't exist or you aren't the owner", http.StatusBadRequest)
+		return
+	}
+
+	_, err = db.Exec("UPDATE projects SET name = ? WHERE id = ?", newName, project)
+	if err != nil {
+		http.Error(w, "something's up with our backend :/", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("gotcha!"))
+}
+
+func EditItem(w http.ResponseWriter, req *http.Request) {
+	var ownerSteamID string
+	var projectID int
+	if req.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusNotAcceptable)
+		return
+	}
+
+	cookie, err := req.Cookie("session_token")
+	if err != nil {
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		return
+	}
+
+	steamid, exists := auth.ValidateUserSession(cookie.Value)
+	if !exists {
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		return
+	}
+
+	item := req.PostFormValue("itemid")
+	newItem, err := strconv.Atoi(item)
+	if err != nil {
+		http.Error(w, "Couldn't convert item id to an integer", http.StatusInternalServerError)
+		return
+	}
+
+	err = db.QueryRow("SELECT project FROM items WHERE id = ?", newItem).Scan(&projectID)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Couldn't find the item", http.StatusBadRequest)
+		return
+	}
+
+	err = db.QueryRow("SELECT owner FROM projects WHERE id = ?", projectID).Scan(&ownerSteamID)
+	if err == sql.ErrNoRows {
+		http.Error(w, "oops, we fucked something up pretty bad...", http.StatusInternalServerError)
+		return
+	}
+
+	if steamid != ownerSteamID {
+		http.Error(w, "This is not your project. Fuck off!", http.StatusUnauthorized)
+		return
+	}
+
+	/* newName := req.PostFormValue("newname")
+	newPrice, err := strconv.Atoi(req.PostFormValue("newprice"))
+	if err != nil {
+		http.Error(w, "couldn't convert newPrice to an integer", http.StatusInternalServerError)
+		return
+	}
+	newPicture := req.PostFormValue("newpicture")
+	newDescription := req.PostFormValue("newdescription")
+	newPrevPrice, err := strconv.Atoi(req.PostFormValue("newprevprice"))
+	if err != nil {
+		http.Error(w, "couldn't convert newPrevPrice to an integer", http.StatusInternalServerError)
+		return
+	}
+	newCategory := req.PostFormValue("newcategory")
+
+	_, err = db.Exec("UPDATE items SET name = ?, price = ?, picture = ?, description = ?, previous_price = ?, category = ? WHERE id = ?", newName, newPrice, newPicture, newDescription, newPrevPrice, newCategory, item)
+	if err != nil {
+		http.Error(w, "something's up with the backend", http.StatusInternalServerError)
+		return
+	} */
+
+	changes := map[string]string{
+		"name":        req.PostFormValue("newname"),
+		"picture":     req.PostFormValue("newpicture"),
+		"description": req.PostFormValue("newdescription"),
+		"category":    req.PostFormValue("newcategory"),
+	}
+	var price, prevprice int
+
+	if req.PostFormValue("newprice") != "" {
+		price, err = strconv.Atoi(req.PostFormValue("newprice"))
+		if err != nil {
+			http.Error(w, "invalid price", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if req.PostFormValue("newprevprice") != "" {
+		prevprice, err = strconv.Atoi(req.PostFormValue("newprevprice"))
+		if err != nil {
+			http.Error(w, "invalid prevprice", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	_, err = db.Exec("UPDATE items SET price = ?, previous_price = ? WHERE id = ?", price, prevprice, item)
+	if err != nil {
+		http.Error(w, "something's up with the database", http.StatusInternalServerError)
+	}
+
+	for i, v := range changes {
+		if v == "" {
+			var new string
+			err = db.QueryRow("SELECT "+i+" FROM items WHERE id = ?", item).Scan(&new)
+			if err != nil {
+				http.Error(w, "something's up with the backend", http.StatusInternalServerError)
+				return
+			}
+			changes[i] = new
+		}
+	}
+
+	for i, v := range changes {
+		_, err = db.Exec("UPDATE items SET "+i+" = ? WHERE id = ?", v, item)
+		if err != nil {
+			http.Error(w, "something's up with the backend", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
