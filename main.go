@@ -16,5 +16,6 @@ func main() {
 	http.HandleFunc("/api/projects/delete", api.DeleteProject)
 	http.HandleFunc("/api/items/create", api.NewItem)
 	http.HandleFunc("/api/items/get", api.GetItems)
+	http.HandleFunc("/aöi/items/delete", api.DeleteItem)
 	http.ListenAndServe(":8080", nil)
 }

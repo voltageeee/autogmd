@@ -190,7 +190,7 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 
 	cookie, err := req.Cookie("session_token")
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -308,4 +308,59 @@ func GetItems(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(items)
+}
+
+func DeleteItem(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusNotAcceptable)
+		return
+	}
+
+	cookie, err := req.Cookie("session_token")
+	if err != nil {
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		return
+	}
+
+	item := req.PostFormValue("itemid")
+	newItem, err := strconv.Atoi(item)
+	if err != nil {
+		http.Error(w, "Couldn't convert item id to an integer", http.StatusInternalServerError)
+		return
+	}
+
+	steamid, exists := auth.ValidateUserSession(cookie.Value)
+	if !exists {
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		return
+	}
+
+	var projectID int
+	var ownerSteamID string
+
+	err = db.QueryRow("SELECT project FROM items WHERE id = ?", newItem).Scan(&projectID)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Couldn't find the item", http.StatusBadRequest)
+		return
+	}
+
+	err = db.QueryRow("SELECT owner FROM projects WHERE id = ?", projectID).Scan(&ownerSteamID)
+	if err == sql.ErrNoRows {
+		http.Error(w, "oops, we fucked something up pretty bad...", http.StatusInternalServerError)
+		return
+	}
+
+	if steamid != ownerSteamID {
+		http.Error(w, "This is not your project. Fuck off!", http.StatusUnauthorized)
+		return
+	}
+
+	_, err = db.Exec("DELETE FROM items WHERE id = ?", newItem)
+	if err != nil {
+		http.Error(w, "Our backend is fucked, try again later", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("gotcha!"))
 }
