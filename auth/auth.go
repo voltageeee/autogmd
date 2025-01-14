@@ -101,7 +101,7 @@ func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionToken := generateRandomSessionToken()
+	sessionToken := GenerateRandomSessionToken()
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
@@ -198,7 +198,7 @@ func fetchSteamUserInfo(steamID string) (*User, error) {
 	}, nil
 }
 
-func generateRandomSessionToken() string {
+func GenerateRandomSessionToken() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)

@@ -19,6 +19,7 @@ type Project struct {
 	IPAddr  string
 	Balance float32
 	Owner   string
+	Secret  string
 }
 
 type Item struct {
@@ -29,6 +30,7 @@ type Item struct {
 	Description string
 	PrevPrice   int
 	ID          int
+	Category    string
 }
 
 var db *sql.DB
@@ -54,13 +56,13 @@ func GetProjects(w http.ResponseWriter, req *http.Request) {
 
 	cookie, err := req.Cookie("session_token")
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
 		return
 	}
 
 	steamid, exists := auth.ValidateUserSession(cookie.Value)
 	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
 		return
 	}
 
@@ -74,7 +76,7 @@ func GetProjects(w http.ResponseWriter, req *http.Request) {
 
 	for rows.Next() {
 		var project Project
-		if err := rows.Scan(&project.ID, &project.Name, &project.IPAddr, &project.Balance, &project.Owner); err != nil {
+		if err := rows.Scan(&project.ID, &project.Name, &project.IPAddr, &project.Balance, &project.Owner, &project.Secret); err != nil {
 			log.Println("Error scanning row:", err)
 			http.Error(w, "Failed to read data", http.StatusInternalServerError)
 			return
@@ -100,13 +102,13 @@ func NewProject(w http.ResponseWriter, req *http.Request) {
 
 	cookie, err := req.Cookie("session_token")
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
 		return
 	}
 
 	steamid, exists := auth.ValidateUserSession(cookie.Value)
 	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
 		return
 	}
 
@@ -126,7 +128,7 @@ func NewProject(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO projects (name, ipaddr, balance, owner) VALUES (?, ?, ?, ?)", name, "localhost", 0.00, steamid)
+	_, err = db.Exec("INSERT INTO projects (name, ipaddr, balance, owner, secret) VALUES (?, ?, ?, ?, ?)", name, "localhost", 0.00, steamid, auth.GenerateRandomSessionToken())
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "our backend is fucked, try again later.", http.StatusInternalServerError)
@@ -145,13 +147,13 @@ func DeleteProject(w http.ResponseWriter, req *http.Request) {
 
 	cookie, err := req.Cookie("session_token")
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
 		return
 	}
 
 	steamid, exists := auth.ValidateUserSession(cookie.Value)
 	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
 		return
 	}
 
@@ -206,10 +208,15 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 	image := req.PostFormValue("image")
 	description := req.PostFormValue("description")
 	previous_price := req.PostFormValue("previousprice")
+	category := req.PostFormValue("category")
 
 	if project == "" || name == "" || price == "" || image == "" || description == "" || previous_price == "" {
 		http.Error(w, "Something is null :(", http.StatusBadRequest)
 		return
+	}
+
+	if category == "" {
+		category = "Разное"
 	}
 
 	newPrice, err := strconv.Atoi(price)
@@ -244,7 +251,7 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO items (project, name, price, picture, description, previous_price) VALUES (?, ?, ?, ?, ?, ?)", newProject, name, newPrice, image, description, newPrevPrice)
+	_, err = db.Exec("INSERT INTO items (project, name, price, picture, description, previous_price, category) VALUES (?, ?, ?, ?, ?, ?, ?)", newProject, name, newPrice, image, description, newPrevPrice, category)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "our backend is fucked, try again later.", http.StatusInternalServerError)
@@ -266,7 +273,7 @@ func GetItems(w http.ResponseWriter, req *http.Request) {
 	project := req.PostFormValue("project")
 	newProject, err := strconv.Atoi(project)
 	if err != nil {
-		http.Error(w, "failed to convert shit to an integer", http.StatusInternalServerError)
+		http.Error(w, "failed to convert project id to an integer", http.StatusInternalServerError)
 		return
 	}
 
@@ -292,7 +299,7 @@ func GetItems(w http.ResponseWriter, req *http.Request) {
 
 	for rows.Next() {
 		var item Item
-		if err := rows.Scan(&item.Project, &item.Name, &item.Price, &item.Picture, &item.Description, &item.PrevPrice, &item.ID); err != nil {
+		if err := rows.Scan(&item.Project, &item.Name, &item.Price, &item.Picture, &item.Description, &item.PrevPrice, &item.ID, &item.Category); err != nil {
 			log.Println("Error scanning row:", err)
 			http.Error(w, "Failed to read data", http.StatusInternalServerError)
 			return
