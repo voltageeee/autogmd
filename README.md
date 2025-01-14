@@ -38,6 +38,12 @@ go run main.go
 удаляет проект, метод post, нужна форма с ключем "projectname", значение - имя проекта. хедер как обычно - токен сессии. респонса тож нема, но должен вернуть 200. пример запроса:
 ![image](https://github.com/user-attachments/assets/e9be893b-ffed-44a5-b025-1757eb745f03)
 
+# /api/projects/edit
+меняет имя проекта по сути, метод post, нужна форма с ключем "projectid" (там собсна id проекта) и "newname" с новым именем.
+пример:
+![image](https://github.com/user-attachments/assets/d67c41f9-4208-426a-9322-52d866fbd919)
+
+
 # /api/items/create
 создает итем. метод post, нужна форма с ключами как на скрине. единственный хедер - токен сессии. респонса нема, должен вернуть 200. пример запроса: previousprice может быть 0, но тогда в магазе нужно будет previousprice ваще не отображать. итемы могут быть неуникальными, нам-то похуй че там сервер овнеры добавляют. вот прям поебать) ещё надо category, если null - будет "Разное"
 ![image](https://github.com/user-attachments/assets/3e6a32b6-bfc5-4b45-b54d-488b143299ea)
@@ -45,5 +51,9 @@ go run main.go
 # /api/items/get
 получает итемы по проекту. !!!! паблик ендпойнт (не требует авторизации), метод гет. нужен ключ с айдишником проекта. пример респонса: (так-же есть category вида string)
 ![image](https://github.com/user-attachments/assets/dd62dad7-c40d-45a4-8f9b-8302e52592dc)
+
+# /api/items/edit
+изменяет итем. можно изменить картинку, имя, описание, цену, старую цену, категорию. пример:
+![image](https://github.com/user-attachments/assets/142f58c4-6d5a-4473-80e1-416bda6c0a7e)
 
 
