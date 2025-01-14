@@ -73,8 +73,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	params := url.Values{
 		"openid.ns":         {"http://specs.openid.net/auth/2.0"},
 		"openid.mode":       {"checkid_setup"},
-		"openid.return_to":  {"http://localhost:8080/steam/callback"},
-		"openid.realm":      {"http://localhost:8080"},
+		"openid.return_to":  {fmt.Sprintf("%s/steam/callback", os.Getenv("HOSTNAME"))},
+		"openid.realm":      {os.Getenv("HOSTNAME")},
 		"openid.identity":   {"http://specs.openid.net/auth/2.0/identifier_select"},
 		"openid.claimed_id": {"http://specs.openid.net/auth/2.0/identifier_select"},
 	}
@@ -126,13 +126,13 @@ func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
 func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_token")
 	if err != nil {
-		http.Redirect(w, r, "http://localhost:8080/login", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
 	}
 
 	steamid, exists := ValidateUserSession(cookie.Value)
 	if !exists {
-		http.Redirect(w, r, "http://localhost:8080/login", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
 	}
 
