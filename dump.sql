@@ -1,0 +1,28 @@
+CREATE DATABASE IF NOT EXISTS autogmd;
+USE autogmd;
+
+CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(50) PRIMARY KEY,
+    username VARCHAR(100) NOT NULL,
+    session_token VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    ipaddr VARCHAR(45) NOT NULL,
+    balance FLOAT NOT NULL,
+    owner VARCHAR(50) NOT NULL,
+    FOREIGN KEY (owner) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    price INT NOT NULL,
+    picture VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    previous_price INT NOT NULL,
+    FOREIGN KEY (project) REFERENCES projects(id) ON DELETE CASCADE
+);
