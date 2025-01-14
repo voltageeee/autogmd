@@ -6,6 +6,12 @@ DB_CONNECTION_STRING=user:password@tcp(ip:port)/database
 HOSTNAME=http://localhost:8080
 ```
 
+запуск: 
+```
+go mod tidy
+go run main.go
+```
+
 # /api/projects/get
 возвращает проекты чубрика в джсон формате (array of Project object). метод get, единственный нужный хедер - токен сессии (для авторизации и получения проектов чубрика из базы данных) который автоматом отправляется бразуером.
 пример респонса:
