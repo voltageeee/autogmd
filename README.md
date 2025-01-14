@@ -56,5 +56,5 @@ go run main.go
 изменяет итем. можно изменить картинку, имя, описание, цену, старую цену, категорию. пример:
 ![image](https://github.com/user-attachments/assets/142f58c4-6d5a-4473-80e1-416bda6c0a7e)
 
-№ /api/items/delete
+# /api/items/delete
 удаляет итем, нужна форма с ключем itemid
