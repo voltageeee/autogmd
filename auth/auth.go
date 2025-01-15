@@ -58,14 +58,45 @@ func upsertUser(id, username, sessionToken string) error {
 	return nil
 }
 
-func ValidateUserSession(session string) (string, bool) {
+func ValidateUserSession(req *http.Request, w http.ResponseWriter) (string, bool) {
 	var steamID string
-	err := db.QueryRow("SELECT id FROM users WHERE session_token = ?", session).Scan(&steamID)
+	session, err := req.Cookie("session_token")
+	if err != nil {
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
+		return "", false
+	}
+
+	err = db.QueryRow("SELECT id FROM users WHERE session_token = ?", session.Value).Scan(&steamID)
 	if err == sql.ErrNoRows {
 		return "", false
 	}
 
 	return steamID, true
+}
+
+func VerifyOwnership(steamid string, projectid int) (bool, bool, error) {
+	var isOwner bool
+	var isCoowner bool
+
+	err := db.QueryRow(`
+		SELECT 
+			(SELECT COUNT(*) > 0 FROM projects WHERE id = ? AND owner = ?) AS isOwner,
+			(SELECT COUNT(*) > 0 FROM coowners WHERE project_id = ? AND coowner_id = ?) AS isCoowner
+		`, projectid, steamid, projectid, steamid).Scan(&isOwner, &isCoowner)
+
+	if err != nil {
+		return false, false, fmt.Errorf("failed to verify ownership or co-ownership: %w", err)
+	}
+
+	if isOwner {
+		return true, false, nil
+	}
+
+	if isCoowner {
+		return false, true, nil
+	}
+
+	return false, false, nil
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -79,13 +110,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		"openid.claimed_id": {"http://specs.openid.net/auth/2.0/identifier_select"},
 	}
 
-	cookie, err := r.Cookie("session_token")
-	if err != nil {
-		http.Redirect(w, r, steamOpenIDURL+"?"+params.Encode(), http.StatusFound)
-		return
-	}
-
-	_, exists := ValidateUserSession(cookie.Value)
+	_, exists := ValidateUserSession(r, w)
 	if !exists {
 		http.Redirect(w, r, steamOpenIDURL+"?"+params.Encode(), http.StatusFound)
 		return
@@ -124,15 +149,8 @@ func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("%s/protected", os.Getenv("HOSTNAME")), http.StatusFound)
 }
 
-// хуета чтоб убедиться в том, что мы залогинились. прост возвращает ник, стимайди и ссылку на аватарку в джсон формате. можно юзать для получения этих данных наврен :/
 func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("session_token")
-	if err != nil {
-		http.Redirect(w, r, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
-		return
-	}
-
-	steamid, exists := ValidateUserSession(cookie.Value)
+	steamid, exists := ValidateUserSession(r, w)
 	if !exists {
 		http.Redirect(w, r, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
