@@ -85,7 +85,7 @@ func VerifyOwnership(steamid string, projectid int) (bool, bool, error) {
 		`, projectid, steamid, projectid, steamid).Scan(&isOwner, &isCoowner)
 
 	if err != nil {
-		return false, false, fmt.Errorf("failed to verify ownership or co-ownership: %w", err)
+		return false, false, fmt.Errorf("failed to verify ownership: %w", err)
 	}
 
 	if isOwner {

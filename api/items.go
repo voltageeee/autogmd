@@ -23,10 +23,11 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 	image := req.PostFormValue("image")
 	description := req.PostFormValue("description")
 	previous_price := req.PostFormValue("previousprice")
+	item_type := req.PostFormValue("type")
 	category := req.PostFormValue("category")
 
 	if project == "" || name == "" || price == "" || image == "" || description == "" || previous_price == "" {
-		http.Error(w, "Something is null :(", http.StatusBadRequest)
+		http.Error(w, "You are supposed to fill all the fields", http.StatusBadRequest)
 		return
 	}
 
@@ -46,6 +47,10 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if newPrice < 0 || newPrevPrice < 0 {
+		http.Error(w, "price and previousprice should be a positive number", http.StatusBadRequest)
+	}
+
 	newProject, err := strconv.Atoi(project)
 	if err != nil {
 		handleError(err, w, "We can't process your request right now.")
@@ -62,14 +67,13 @@ func NewItem(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO items (project, name, price, picture, description, previous_price, category) VALUES (?, ?, ?, ?, ?, ?, ?)", newProject, name, newPrice, image, description, newPrevPrice, category)
+	_, err = db.Exec("INSERT INTO items (project, name, price, picture, description, previous_price, category, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", newProject, name, newPrice, image, description, newPrevPrice, category, item_type)
 	if err != nil {
 		handleError(err, w, "We can't process your request right now.")
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("gotcha!"))
 }
 
 func GetItems(w http.ResponseWriter, req *http.Request) {
@@ -158,7 +162,6 @@ func DeleteItem(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("gotcha!"))
 }
 
 func EditItem(w http.ResponseWriter, req *http.Request) {
@@ -223,6 +226,7 @@ func EditItem(w http.ResponseWriter, req *http.Request) {
 		handleError(err, w, "We can't process your request right now.")
 	}
 
+	// the "i" is hard-coded, this ISN'T a threat of SQL injection
 	for i, v := range changes {
 		if v == "" {
 			var new string
@@ -244,5 +248,4 @@ func EditItem(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("gotcha!"))
 }

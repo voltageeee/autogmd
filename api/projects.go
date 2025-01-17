@@ -91,7 +91,6 @@ func NewProject(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("gotcha!"))
 }
 
 func DeleteProject(w http.ResponseWriter, req *http.Request) {
@@ -124,7 +123,6 @@ func DeleteProject(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("gotcha!"))
 }
 
 func EditProject(w http.ResponseWriter, req *http.Request) {
@@ -158,5 +156,54 @@ func EditProject(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("gotcha!"))
+}
+
+func AddCoOwner(w http.ResponseWriter, req *http.Request) {
+	coownerId := req.PostFormValue("coownerid")
+
+	steamid, exists := auth.ValidateUserSession(req, w)
+	if !exists {
+		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
+		return
+	}
+
+	id, err := strconv.Atoi(req.PostFormValue("projectid"))
+	if err != nil {
+		handleError(err, w, "Project ID must be a positive number.")
+		return
+	}
+
+	if id <= 0 {
+		http.Error(w, "Project ID must be positive", http.StatusBadRequest)
+		return
+	}
+
+	isOwner, _, err := auth.VerifyOwnership(steamid, id)
+	if err != nil {
+		handleError(err, w, "Failed to verify project ownership.")
+		return
+	}
+
+	if !isOwner {
+		http.Error(w, "You aren't the project's owner", http.StatusUnauthorized)
+		return
+	}
+
+	err = db.QueryRow("SELECT COUNT(*) > 0 FROM users WHERE id = ?", coownerId).Scan(&exists)
+	if err != nil {
+		handleError(err, w, "Sorry, we're unable to process your request right now")
+	}
+
+	if !exists {
+		http.Error(w, "Coowner must be registered as a valid user before proceeding.", http.StatusBadRequest)
+		return
+	}
+
+	_, err = db.Exec("INSERT INTO coowners (project_id, coowner_id) VALUES (?, ?)", id, coownerId)
+	if err != nil {
+		handleError(err, w, "Sorry, we're unable to process your request right now.")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
