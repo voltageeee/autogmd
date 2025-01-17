@@ -227,7 +227,7 @@ func GenerateRandomSessionToken() string {
 func Logout(w http.ResponseWriter, req *http.Request) {
 	token, err := req.Cookie("session_token")
 	if err != nil {
-		http.Error(w, "Oops, something's fishy! You don't seem to have your cookies in order. That must mean that you are already logged out. What a boomer, er? Hi from voltage btw", http.StatusBadRequest)
+  http.Error(w, "Get your cookies in order", http.StatusBadRequest)
 		return
 	}
 
