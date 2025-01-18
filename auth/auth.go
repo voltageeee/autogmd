@@ -63,7 +63,7 @@ func ValidateUserSession(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		steamID, exists := validateUserSession(req, w)
 		if !exists {
-			http.Redirect(w, req, "/login", http.StatusUnauthorized)
+			http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
 			return
 		}
 
