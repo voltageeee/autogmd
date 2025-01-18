@@ -14,8 +14,8 @@ func main() {
 
 	r.HandleFunc("/login", auth.LoginHandler).Methods("GET")
 	r.HandleFunc("/steam/callback", auth.SteamCallbackHandler).Methods("GET")
-	r.HandleFunc("/logout", auth.Logout).Methods("GET")
-	r.HandleFunc("/protected", auth.ProtectedHandler).Methods("GET")
+	r.HandleFunc("/logout", auth.ValidateUserSession(auth.Logout)).Methods("GET")
+	r.HandleFunc("/protected", auth.ValidateUserSession(auth.ProtectedHandler)).Methods("GET")
 
 	r.HandleFunc("/api/projects/create", auth.ValidateUserSession(api.NewProject)).Methods("POST")
 	r.HandleFunc("/api/projects/get", auth.ValidateUserSession(api.GetProjects)).Methods("GET")

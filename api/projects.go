@@ -20,7 +20,7 @@ var codes = map[Code]int{}
 func GetProjects(w http.ResponseWriter, req *http.Request) {
 	var projects []Project
 
-	steamid := req.Context().Value("steamID").(string)
+	steamid := req.Context().Value(auth.SteamIDKey).(string)
 
 	rows, err := db.Query(`
 		SELECT p.id, p.name, p.ipaddr, p.balance, p.owner, p.secret
@@ -66,7 +66,7 @@ func GetProjects(w http.ResponseWriter, req *http.Request) {
 }
 
 func NewProject(w http.ResponseWriter, req *http.Request) {
-	steamid := req.Context().Value("steamid").(string)
+	steamid := req.Context().Value(auth.SteamIDKey).(string)
 
 	name := req.PostFormValue("projectname")
 
@@ -93,7 +93,7 @@ func NewProject(w http.ResponseWriter, req *http.Request) {
 }
 
 func DeleteProject(w http.ResponseWriter, req *http.Request) {
-	steamid := req.Context().Value("steamid").(string)
+	steamid := req.Context().Value(auth.SteamIDKey).(string)
 
 	project := req.PostFormValue("projectid")
 	projectid, err := strconv.Atoi(project)
@@ -128,7 +128,7 @@ func EditProject(w http.ResponseWriter, req *http.Request) {
 	}
 	newName := req.PostFormValue("newname")
 
-	steamid := req.Context().Value("steamid").(string)
+	steamid := req.Context().Value(auth.SteamIDKey).(string)
 
 	isOwner, _, err := auth.VerifyOwnership(steamid, project)
 	if err != nil {
@@ -152,7 +152,7 @@ func EditProject(w http.ResponseWriter, req *http.Request) {
 func AddCoOwner(w http.ResponseWriter, req *http.Request) {
 	coownerId := req.PostFormValue("coownerid")
 
-	steamid := req.Context().Value("steamid").(string)
+	steamid := req.Context().Value(auth.SteamIDKey).(string)
 	var exists bool
 
 	id, err := strconv.Atoi(req.PostFormValue("projectid"))
@@ -277,7 +277,7 @@ func Confirm(w http.ResponseWriter, req *http.Request) {
 }
 
 func GetConfirmationCodes(w http.ResponseWriter, req *http.Request) {
-	steamid := req.Context().Value("steamid").(string)
+	steamid := req.Context().Value(auth.SteamIDKey).(string)
 
 	id, err := strconv.Atoi(req.PostFormValue("projectid"))
 	if err != nil {

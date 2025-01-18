@@ -59,34 +59,38 @@ func upsertUser(id, username, sessionToken string) error {
 	return nil
 }
 
+type contextKey string
+type existsKey bool
+
+const SteamIDKey contextKey = "steamID"
+const Existsk existsKey = false
+
 func ValidateUserSession(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		steamID, exists := validateUserSession(req, w)
-		if !exists {
+		session, err := req.Cookie("session_token")
+		if err != nil {
 			http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
 			return
 		}
 
+		var steamID string
+		err = db.QueryRow("SELECT id FROM users WHERE session_token = ?", session.Value).Scan(&steamID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
+				return
+			}
+			log.Printf("Error querying database for session_token: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		ctx := req.Context()
-		ctx = context.WithValue(ctx, "steamID", steamID)
+		ctx = context.WithValue(ctx, SteamIDKey, steamID)
+		ctx = context.WithValue(ctx, Existsk, true)
+
 		next.ServeHTTP(w, req.WithContext(ctx))
 	}
-}
-
-func validateUserSession(req *http.Request, w http.ResponseWriter) (string, bool) {
-	var steamID string
-	session, err := req.Cookie("session_token")
-	if err != nil {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
-		return "", false
-	}
-
-	err = db.QueryRow("SELECT id FROM users WHERE session_token = ?", session.Value).Scan(&steamID)
-	if err == sql.ErrNoRows {
-		return "", false
-	}
-
-	return steamID, true
 }
 
 func VerifyOwnership(steamid string, projectid int) (bool, bool, error) {
@@ -125,13 +129,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		"openid.claimed_id": {"http://specs.openid.net/auth/2.0/identifier_select"},
 	}
 
-	_, exists := validateUserSession(r, w)
-	if !exists {
-		http.Redirect(w, r, steamOpenIDURL+"?"+params.Encode(), http.StatusFound)
-		return
-	}
-
-	http.Redirect(w, r, fmt.Sprintf("%s/protected", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, steamOpenIDURL+"?"+params.Encode(), http.StatusFound)
 }
 
 func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -147,14 +145,15 @@ func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		Name:     "session_token",
 		Value:    sessionToken,
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
 
 	user, err := fetchSteamUserInfo(steamID)
 	if err != nil {
 		http.Error(w, "Failed to fetch user data", http.StatusInternalServerError)
+		return
 	}
 
 	if err := upsertUser(steamID, user.Username, sessionToken); err != nil {
@@ -165,9 +164,11 @@ func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
-	steamid, exists := validateUserSession(r, w)
+	steamid := r.Context().Value(SteamIDKey).(string)
+	exists := r.Context().Value(Existsk).(bool)
+
 	if !exists {
-		http.Redirect(w, r, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
+		fmt.Println("!")
 		return
 	}
 
