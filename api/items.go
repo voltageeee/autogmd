@@ -6,16 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 )
 
 func NewItem(w http.ResponseWriter, req *http.Request) {
-	steamid, exists := auth.ValidateUserSession(req, w)
-	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
-		return
-	}
+	steamid := req.Context().Value("steamid").(string)
 
 	project := req.PostFormValue("project")
 	name := req.PostFormValue("name")
@@ -126,11 +121,7 @@ func GetItems(w http.ResponseWriter, req *http.Request) {
 func DeleteItem(w http.ResponseWriter, req *http.Request) {
 	var projectID int
 
-	steamid, exists := auth.ValidateUserSession(req, w)
-	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
-		return
-	}
+	steamid := req.Context().Value("steamid").(string)
 
 	item := req.PostFormValue("itemid")
 	newItem, err := strconv.Atoi(item)
@@ -167,11 +158,7 @@ func DeleteItem(w http.ResponseWriter, req *http.Request) {
 func EditItem(w http.ResponseWriter, req *http.Request) {
 	var projectID int
 
-	steamid, exists := auth.ValidateUserSession(req, w)
-	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
-		return
-	}
+	steamid := req.Context().Value("steamid").(string)
 
 	isOwner, _, err := auth.VerifyOwnership(steamid, projectID)
 	if err != nil {

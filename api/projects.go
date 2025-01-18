@@ -3,21 +3,24 @@ package api
 import (
 	"autogmd/auth"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
+	"time"
 )
+
+type Code struct {
+	Code      string    `json:"code"`
+	Timestamp time.Time `json:"timestamp"`
+	Expires   time.Time `json:"expires"`
+}
+
+var codes = map[Code]int{}
 
 func GetProjects(w http.ResponseWriter, req *http.Request) {
 	var projects []Project
 
-	steamid, exists := auth.ValidateUserSession(req, w)
-	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
-		return
-	}
+	steamid := req.Context().Value("steamID").(string)
 
 	rows, err := db.Query(`
 		SELECT p.id, p.name, p.ipaddr, p.balance, p.owner, p.secret
@@ -63,11 +66,7 @@ func GetProjects(w http.ResponseWriter, req *http.Request) {
 }
 
 func NewProject(w http.ResponseWriter, req *http.Request) {
-	steamid, exists := auth.ValidateUserSession(req, w)
-	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
-		return
-	}
+	steamid := req.Context().Value("steamid").(string)
 
 	name := req.PostFormValue("projectname")
 
@@ -94,11 +93,7 @@ func NewProject(w http.ResponseWriter, req *http.Request) {
 }
 
 func DeleteProject(w http.ResponseWriter, req *http.Request) {
-	steamid, exists := auth.ValidateUserSession(req, w)
-	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
-		return
-	}
+	steamid := req.Context().Value("steamid").(string)
 
 	project := req.PostFormValue("projectid")
 	projectid, err := strconv.Atoi(project)
@@ -133,11 +128,7 @@ func EditProject(w http.ResponseWriter, req *http.Request) {
 	}
 	newName := req.PostFormValue("newname")
 
-	steamid, exists := auth.ValidateUserSession(req, w)
-	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
-		return
-	}
+	steamid := req.Context().Value("steamid").(string)
 
 	isOwner, _, err := auth.VerifyOwnership(steamid, project)
 	if err != nil {
@@ -161,11 +152,8 @@ func EditProject(w http.ResponseWriter, req *http.Request) {
 func AddCoOwner(w http.ResponseWriter, req *http.Request) {
 	coownerId := req.PostFormValue("coownerid")
 
-	steamid, exists := auth.ValidateUserSession(req, w)
-	if !exists {
-		http.Redirect(w, req, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusUnauthorized)
-		return
-	}
+	steamid := req.Context().Value("steamid").(string)
+	var exists bool
 
 	id, err := strconv.Atoi(req.PostFormValue("projectid"))
 	if err != nil {
@@ -206,4 +194,117 @@ func AddCoOwner(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func Register(w http.ResponseWriter, req *http.Request) {
+	id, err := strconv.Atoi(req.PostFormValue("projectid"))
+	if err != nil {
+		handleError(err, w, "seems like you're trying to pass a non-int value")
+		return
+	}
+
+	if id <= 0 {
+		http.Error(w, "projectid must be a positive integer", http.StatusBadRequest)
+		return
+	}
+
+	var exists bool
+
+	err = db.QueryRow("SELECT COUNT(*) > 0 FROM projects WHERE id = ?", id).Scan(&exists)
+	if err != nil {
+		http.Error(w, "project must exist", http.StatusBadRequest)
+		return
+	}
+
+	code := Code{
+		Code:      auth.GenerateRandomSessionToken(),
+		Timestamp: time.Now(),
+		Expires:   time.Now().Add(time.Second * 180),
+	}
+
+	codes[code] = id
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func Confirm(w http.ResponseWriter, req *http.Request) {
+	id, err := strconv.Atoi(req.PostFormValue("projectid"))
+	if err != nil {
+		handleError(err, w, "seems like you're trying to pass a non-int value")
+		return
+	}
+	codeKey := req.PostFormValue("confirmationcode")
+	ipaddr := req.PostFormValue("ipaddr")
+
+	if id <= 0 {
+		http.Error(w, "projectid must be a positive integer", http.StatusBadRequest)
+		return
+	}
+
+	var exists bool
+	err = db.QueryRow("SELECT COUNT(*) > 0 FROM projects WHERE id = ?", id).Scan(&exists)
+	if err != nil {
+		handleError(err, w, "something's wrong on our side, sorry")
+		return
+	}
+
+	for code, codeId := range codes {
+		if code.Code == codeKey {
+			if code.Expires.Before(time.Now()) {
+				delete(codes, code)
+				http.Error(w, "Confirmation code has expired", http.StatusBadRequest)
+				return
+			}
+
+			if id != codeId {
+				http.Error(w, "Project ID does not match the confirmation code", http.StatusBadRequest)
+				return
+			}
+
+			_, err = db.Exec("UPDATE projects SET ipaddr = ? WHERE id = ?", ipaddr, id)
+			if err != nil {
+				handleError(err, w, "Database update failed")
+				return
+			}
+
+			delete(codes, code)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+
+	http.Error(w, "Invalid confirmation code", http.StatusBadRequest)
+}
+
+func GetConfirmationCodes(w http.ResponseWriter, req *http.Request) {
+	steamid := req.Context().Value("steamid").(string)
+
+	id, err := strconv.Atoi(req.PostFormValue("projectid"))
+	if err != nil {
+		handleError(err, w, "seems like you're trying to pass a non-integer value")
+		return
+	}
+
+	isOwner, _, err := auth.VerifyOwnership(steamid, id)
+	if !isOwner {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("You are not the project owner"))
+	}
+	if err != nil {
+		handleError(err, w, "something's wrong on our side")
+	}
+
+	codesToSend := []Code{}
+
+	for i, v := range codes {
+		if v == id {
+			codesToSend = append(codesToSend, i)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(codesToSend); err != nil {
+		handleError(err, w, "We can't process your request right now.")
+		return
+	}
 }

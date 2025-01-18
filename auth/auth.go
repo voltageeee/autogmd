@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
@@ -58,7 +59,21 @@ func upsertUser(id, username, sessionToken string) error {
 	return nil
 }
 
-func ValidateUserSession(req *http.Request, w http.ResponseWriter) (string, bool) {
+func ValidateUserSession(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		steamID, exists := validateUserSession(req, w)
+		if !exists {
+			http.Redirect(w, req, "/login", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, "steamID", steamID)
+		next.ServeHTTP(w, req.WithContext(ctx))
+	}
+}
+
+func validateUserSession(req *http.Request, w http.ResponseWriter) (string, bool) {
 	var steamID string
 	session, err := req.Cookie("session_token")
 	if err != nil {
@@ -110,7 +125,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		"openid.claimed_id": {"http://specs.openid.net/auth/2.0/identifier_select"},
 	}
 
-	_, exists := ValidateUserSession(r, w)
+	_, exists := validateUserSession(r, w)
 	if !exists {
 		http.Redirect(w, r, steamOpenIDURL+"?"+params.Encode(), http.StatusFound)
 		return
@@ -150,7 +165,7 @@ func SteamCallbackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
-	steamid, exists := ValidateUserSession(r, w)
+	steamid, exists := validateUserSession(r, w)
 	if !exists {
 		http.Redirect(w, r, fmt.Sprintf("%s/login", os.Getenv("HOSTNAME")), http.StatusTemporaryRedirect)
 		return
@@ -227,7 +242,7 @@ func GenerateRandomSessionToken() string {
 func Logout(w http.ResponseWriter, req *http.Request) {
 	token, err := req.Cookie("session_token")
 	if err != nil {
-  http.Error(w, "Get your cookies in order", http.StatusBadRequest)
+		http.Error(w, "Get your cookies in order", http.StatusBadRequest)
 		return
 	}
 
